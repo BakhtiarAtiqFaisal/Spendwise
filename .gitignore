@@ -20,10 +20,13 @@ dist/
 *.egg-info/
 
 # Frontend dependencies and build outputs
-spend_wise/node_modules/
-spend_wise/dist/
-spend_wise/dist-ssr/
-spend_wise/*.local
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/*.local
+
+# Old frontend folder name retained only if Windows has locked files during migration
+spend_wise/
 
 # Logs
 logs/
