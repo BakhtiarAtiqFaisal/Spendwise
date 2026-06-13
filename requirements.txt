@@ -1,0 +1,7 @@
+# cspell:words fastapi uvicorn psycopg psycopg2 dotenv httpx
+fastapi
+uvicorn[standard]
+psycopg2-binary
+python-dotenv
+httpx
+email-validator
