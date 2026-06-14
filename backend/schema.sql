@@ -10,9 +10,13 @@ CREATE TABLE IF NOT EXISTS public.spendwise (
     email_address TEXT UNIQUE,
     phone_number TEXT,
     location TEXT,
+    terms_accepted BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE public.spendwise
+ADD COLUMN IF NOT EXISTS terms_accepted BOOLEAN NOT NULL DEFAULT FALSE;
 
 CREATE TABLE IF NOT EXISTS public.budget_setups (
     id BIGSERIAL PRIMARY KEY,
@@ -102,24 +106,26 @@ EXECUTE FUNCTION public.set_updated_at();
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO public.spendwise (id, full_name, email_address, phone_number, location)
+    INSERT INTO public.spendwise (id, full_name, email_address, phone_number, location, terms_accepted)
     VALUES (
         NEW.id,
         COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name'),
         NEW.email,
         NEW.raw_user_meta_data->>'phone_number',
-        NEW.raw_user_meta_data->>'location'
+        NEW.raw_user_meta_data->>'location',
+        COALESCE((NEW.raw_user_meta_data->>'terms_accepted')::BOOLEAN, FALSE)
     )
     ON CONFLICT (id) DO UPDATE SET
         full_name = COALESCE(EXCLUDED.full_name, public.spendwise.full_name),
         email_address = COALESCE(EXCLUDED.email_address, public.spendwise.email_address),
         phone_number = COALESCE(EXCLUDED.phone_number, public.spendwise.phone_number),
         location = COALESCE(EXCLUDED.location, public.spendwise.location),
+        terms_accepted = EXCLUDED.terms_accepted OR public.spendwise.terms_accepted,
         updated_at = NOW();
 
     INSERT INTO public.budget_setups (user_id)
     VALUES (NEW.id)
-    ON CONFLICT (user_id) DO NOTHING;
+    ON CONFLICT ON CONSTRAINT budget_setups_one_per_user DO NOTHING;
 
     RETURN NEW;
 END;
@@ -145,6 +151,11 @@ DROP POLICY IF EXISTS "Users can update their own SpendWise profile" ON public.s
 CREATE POLICY "Users can update their own SpendWise profile"
 ON public.spendwise FOR UPDATE
 USING (auth.uid() = id)
+WITH CHECK (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Users can insert their own SpendWise profile" ON public.spendwise;
+CREATE POLICY "Users can insert their own SpendWise profile"
+ON public.spendwise FOR INSERT
 WITH CHECK (auth.uid() = id);
 
 DROP POLICY IF EXISTS "Users can view their own budget setup" ON public.budget_setups;

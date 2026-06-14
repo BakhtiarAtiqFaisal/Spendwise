@@ -5,7 +5,7 @@ import InputField from '../components/InputField'
 import Layout from '../components/Layout'
 import PrimaryButton from '../components/PrimaryButton'
 import { login, saveAccessToken } from '../api'
-import { getUser, isSetupComplete, saveUser, setLoggedIn } from '../storage'
+import { getUser, saveUser, setLoggedIn } from '../storage'
 
 function LoginPage() {
   const navigate = useNavigate()
@@ -38,7 +38,7 @@ function LoginPage() {
         location: String(metadata.location ?? existingUser?.location ?? ''),
       })
       setLoggedIn()
-      navigate(isSetupComplete() ? '/dashboard' : '/setup/planned-budget')
+      navigate(response.setupCompleted ? '/dashboard' : '/setup/planned-budget')
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : 'Could not log in. Please check your details and try again.')
     } finally {

@@ -1,12 +1,18 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Layout from '../components/Layout'
 import PrimaryButton from '../components/PrimaryButton'
+import { markBudgetSetupComplete } from '../api'
 import { calculateCategoryTotal, getLastMonthSpending, getPlannedBudget, getThisMonthSpending, setSetupComplete } from '../storage'
 
 function SetupConfirmationPage() {
+  const [saveError, setSaveError] = useState('')
+
   useEffect(() => {
     setSetupComplete()
+    markBudgetSetupComplete().catch((error) => {
+      setSaveError(error instanceof Error ? error.message : 'Could not save setup completion to Supabase.')
+    })
   }, [])
 
   const plannedBudget = getPlannedBudget()
@@ -23,6 +29,7 @@ function SetupConfirmationPage() {
         <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-100 text-4xl text-green-700">✓</div>
         <h1 className="mt-6 text-3xl font-bold text-slate-900">Budget setup completed successfully</h1>
         <p className="mt-3 text-slate-600">Your planned budget, last month spending, and this month spending have been saved. SpendWise is ready to show your dashboard.</p>
+        {saveError && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{saveError}</p>}
 
         <div className="mt-8 grid gap-3 rounded-2xl bg-blue-50 p-6 text-left text-slate-700">
           <p>Monthly income: <strong>${(plannedBudget?.income ?? 0).toFixed(2)}</strong></p>

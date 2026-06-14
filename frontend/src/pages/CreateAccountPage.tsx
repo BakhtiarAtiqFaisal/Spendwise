@@ -42,7 +42,7 @@ function CreateAccountPage() {
     try {
       setIsLoading(true)
       const user = { name, email, phone, location }
-      const response = await signup(user, password)
+      const response = await signup(user, password, acceptedTerms)
       saveAccessToken(response.access_token)
       clearSetupDataForNewAccount()
       saveUser(user)
