@@ -18,6 +18,12 @@ CREATE TABLE IF NOT EXISTS public.spendwise (
 ALTER TABLE public.spendwise
 ADD COLUMN IF NOT EXISTS terms_accepted BOOLEAN NOT NULL DEFAULT FALSE;
 
+-- Auth users already enforce unique email addresses. Keeping a separate unique
+-- constraint on profile email can break re-signup flows if an old profile row
+-- remains after an auth user is deleted or recreated.
+ALTER TABLE public.spendwise
+DROP CONSTRAINT IF EXISTS spendwise_email_address_key;
+
 CREATE TABLE IF NOT EXISTS public.budget_setups (
     id BIGSERIAL PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES public.spendwise(id) ON DELETE CASCADE,
@@ -103,6 +109,8 @@ FOR EACH ROW
 EXECUTE FUNCTION public.set_updated_at();
 
 -- Supabase Auth trigger: create a SpendWise profile row when a user signs up.
+-- Keep this trigger intentionally small. Budget setup rows are created later by
+-- the app so signup cannot fail because of budget setup constraints.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -122,10 +130,6 @@ BEGIN
         location = COALESCE(EXCLUDED.location, public.spendwise.location),
         terms_accepted = EXCLUDED.terms_accepted OR public.spendwise.terms_accepted,
         updated_at = NOW();
-
-    INSERT INTO public.budget_setups (user_id)
-    VALUES (NEW.id)
-    ON CONFLICT ON CONSTRAINT budget_setups_one_per_user DO NOTHING;
 
     RETURN NEW;
 END;

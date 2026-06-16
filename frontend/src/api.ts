@@ -44,6 +44,42 @@ function authUserToResponse(authUser: AuthUser, accessToken?: string, setupCompl
   }
 }
 
+async function saveSignupProfile(supabase: ReturnType<typeof getSupabaseClient>, userId: string, user: User, termsAccepted: boolean) {
+  const profile = {
+    id: userId,
+    full_name: user.name,
+    email_address: user.email,
+    phone_number: user.phone,
+    location: user.location,
+    terms_accepted: termsAccepted,
+  }
+
+  const { data: updatedRows, error: updateError } = await supabase
+    .from('spendwise')
+    .update(profile)
+    .eq('id', userId)
+    .select('id')
+
+  if (updateError) throw new Error(updateError.message)
+  if (updatedRows && updatedRows.length > 0) return
+
+  const { error: insertError } = await supabase.from('spendwise').insert(profile)
+
+  if (!insertError) return
+
+  if (insertError.code === '23505') {
+    const { error: retryUpdateError } = await supabase
+      .from('spendwise')
+      .update(profile)
+      .eq('id', userId)
+
+    if (retryUpdateError) throw new Error(retryUpdateError.message)
+    return
+  }
+
+  throw new Error(insertError.message)
+}
+
 export async function signup(user: User, password: string, termsAccepted: boolean): Promise<AuthResponse> {
   const supabase = getSupabaseClient()
 
@@ -65,16 +101,7 @@ export async function signup(user: User, password: string, termsAccepted: boolea
   if (!data.user) throw new Error('Sign-up did not return a user. Please try again.')
 
   if (data.session) {
-    const { error: profileError } = await supabase.from('spendwise').upsert({
-      id: data.user.id,
-      full_name: user.name,
-      email_address: user.email,
-      phone_number: user.phone,
-      location: user.location,
-      terms_accepted: termsAccepted,
-    })
-
-    if (profileError) throw new Error(profileError.message)
+    await saveSignupProfile(supabase, data.user.id, user, termsAccepted)
   }
 
   return authUserToResponse(data.user, data.session?.access_token, false)
